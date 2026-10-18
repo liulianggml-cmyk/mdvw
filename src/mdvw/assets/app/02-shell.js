@@ -9,21 +9,65 @@ let incomingLoaded = false;
 let tasksLoaded = false;
 let graphLoaded = false;
 let graphStale = true;
-let leftPaneCollapsed = uiState.left_pane_collapsed ?? false;
-let leftPaneWidth = uiState.left_pane_width ?? 280;
-let leftPaneSection = uiState.left_pane_section ?? 'files';
-let rightPaneCollapsed = uiState.right_pane_collapsed ?? true;
+let leftPaneCollapsed = uiState.left_pane_collapsed === true;
+let leftPaneWidth = 280;
+let leftPaneSection = 'outline';
+let filesHeightPercent = Math.max(15, Math.min(85, Number(uiState.files_height_percent) || 45));
+let rightPaneCollapsed = true;
 let rightPaneWidth = uiState.right_pane_width ?? 300;
 
 function applyLeftPane() {
+  const toggle = document.getElementById('btn-files');
+  toggle.classList.toggle('active', !leftPaneCollapsed);
+  toggle.setAttribute('aria-expanded', String(!leftPaneCollapsed));
+  toggle.setAttribute('aria-label', leftPaneCollapsed ? '显示侧栏' : '隐藏侧栏');
+  toggle.title = leftPaneCollapsed ? '显示侧栏' : '隐藏侧栏';
   if (leftPaneCollapsed) {
     mainEl.style.setProperty('--left-w', '0px');
     leftPane.hidden = true;
   } else {
-    mainEl.style.setProperty('--left-w', leftPaneWidth + 'px');
+    mainEl.style.setProperty('--left-w', 'clamp(240px, 22vw, 450px)');
     leftPane.hidden = false;
   }
 }
+
+const outlineResize = document.getElementById('outline-resize');
+function applyFilesHeight() {
+  leftPane.style.setProperty('--files-height', `${filesHeightPercent}%`);
+  outlineResize.setAttribute('aria-valuenow', String(Math.round(filesHeightPercent)));
+}
+applyFilesHeight();
+
+outlineResize.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  outlineResize.setPointerCapture(event.pointerId);
+  outlineResize.classList.add('dragging');
+  const startY = event.clientY;
+  const startPercent = filesHeightPercent;
+  const available = leftPane.querySelector('.pane-sections').clientHeight - outlineResize.offsetHeight;
+  const move = (next) => {
+    filesHeightPercent = Math.max(15, Math.min(85, startPercent + (next.clientY - startY) * 100 / Math.max(1, available)));
+    applyFilesHeight();
+  };
+  const stop = () => {
+    outlineResize.classList.remove('dragging');
+    outlineResize.removeEventListener('pointermove', move);
+    outlineResize.removeEventListener('pointerup', stop);
+    outlineResize.removeEventListener('pointercancel', stop);
+    persistState();
+  };
+  outlineResize.addEventListener('pointermove', move);
+  outlineResize.addEventListener('pointerup', stop);
+  outlineResize.addEventListener('pointercancel', stop);
+});
+outlineResize.addEventListener('keydown', (event) => {
+  if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+  event.preventDefault();
+  filesHeightPercent = Math.max(15, Math.min(85, filesHeightPercent + (event.key === 'ArrowDown' ? 5 : -5)));
+  applyFilesHeight();
+  persistState();
+});
 
 function applyRightPane() {
   if (rightPaneCollapsed) {
@@ -36,14 +80,14 @@ function applyRightPane() {
 }
 
 function showLeftSection(name) {
-  leftPaneSection = name;
+  leftPaneSection = 'files';
   paneTabs.forEach(t => {
     const on = t.dataset.section === name;
     t.classList.toggle('active', on);
     t.setAttribute('aria-selected', on ? 'true' : 'false');
   });
   paneSections.forEach(s => {
-    const on = s.id === `section-${name}`;
+    const on = s.id === 'section-files' || s.id === 'section-outline';
     s.classList.toggle('active', on);
     s.hidden = !on;
   });
@@ -55,13 +99,12 @@ function showLeftSection(name) {
   if (name === 'tasks' && !tasksLoaded) loadTasks();
   if (name === 'incoming' && !incomingLoaded) loadIncomingLinks();
   if (name === 'graph' && (!graphLoaded || graphStale)) loadGraph();
-  if (name === 'files' && !browserLoaded && browseRoot) loadBrowser();
+  if (!browserLoaded && browseRoot) loadBrowser();
 }
 
 function toggleLeftPane() {
   leftPaneCollapsed = !leftPaneCollapsed;
   applyLeftPane();
-  btnFiles.classList.toggle('active', !leftPaneCollapsed);
   persistState();
 }
 
@@ -126,10 +169,12 @@ function persistState() {
         left_pane_width: leftPaneWidth,
         left_pane_collapsed: leftPaneCollapsed,
         left_pane_section: leftPaneSection,
+        files_height_percent: Math.round(filesHeightPercent),
         right_pane_width: rightPaneWidth,
         right_pane_collapsed: rightPaneCollapsed,
         mode: currentMode,
         preview_narrow: preview.classList.contains('narrow'),
+        zoom_level: zoomLevel,
       });
     }
   }, 300);
@@ -406,16 +451,8 @@ function renderPaletteCommandItems(q, cmdMatches) {
 }
 
 // Register built-in commands
-registerCommand('mode.read', 'Read Mode', 'Ctrl+1', () => setMode('read'));
-registerCommand('mode.edit', 'Edit Mode', 'Ctrl+2', () => setMode('edit'));
-registerCommand('mode.source', 'Source Mode', 'Ctrl+3', () => setMode('source'));
-registerCommand('note.new', 'New Note', 'Ctrl+N', () => openNoteCreateDialog());
-registerCommand('note.new_template', 'New Note from Template', '', () => openNoteCreateDialog({ requireTemplate: true }));
-registerCommand('note.daily', 'Open Daily Note', '', () => openDailyNote());
-registerCommand('note.rename', 'Rename or Move Note', '', () => openNoteMoveDialog());
 registerCommand('file.open', 'Open File', 'Ctrl+O', () => openFile());
 registerCommand('file.open_dir', 'Open Directory', 'Ctrl+Shift+O', () => openDirectory());
-registerCommand('file.save', 'Save', 'Ctrl+S', () => save());
 registerCommand('navigate.back', 'Back', 'Alt+Left', () => navigateHistory(-1));
 registerCommand('navigate.forward', 'Forward', 'Alt+Right', () => navigateHistory(1));
 registerCommand('pane.files', 'Show Files', '', () => { loadBrowser(); showLeftSection('files'); });
@@ -560,7 +597,3 @@ function updateCursorPosition() {
 
 editor.addEventListener('click', updateCursorPosition);
 editor.addEventListener('keyup', updateCursorPosition);
-
-sbMode.addEventListener('click', () => {
-  setMode({ read: 'edit', edit: 'source', source: 'read' }[currentMode]);
-});

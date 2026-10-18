@@ -8,13 +8,13 @@ from . import __version__
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="mdvw", description="Offline Markdown viewer/editor.")
+    p = argparse.ArgumentParser(prog="MD阅读器", description="本地 Markdown 文件阅读器。")
     p.add_argument("file", nargs="?", type=Path, help="Markdown file to open")
     p.add_argument("--edit", action="store_true", help="Start in edit mode")
     p.add_argument("--no-tray", action="store_true", help="Disable system tray icon")
-    p.add_argument("--register", action="store_true", help="Associate .md files with mdvw")
+    p.add_argument("--register", action="store_true", help="Associate .md files with MD阅读器")
     p.add_argument("--unregister", action="store_true", help="Remove .md association")
-    p.add_argument("-V", "--version", action="version", version=f"mdvw {__version__}")
+    p.add_argument("-V", "--version", action="version", version=f"MD阅读器 {__version__}")
     return p
 
 

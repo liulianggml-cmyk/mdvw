@@ -13,7 +13,7 @@ from importlib.resources import files
 from pathlib import Path
 
 PROG_ID = "mdvw.Markdown.1"
-APP_NAME = "mdvw"
+APP_NAME = "MD阅读器"
 
 
 def _stdout_print(message: str) -> None:
@@ -91,7 +91,7 @@ def register(open_settings: bool = False) -> int:
         with winreg.CreateKeyEx(
             winreg.HKEY_CURRENT_USER, rf"Software\Classes\Applications\{exe_name}"
         ) as k:
-            winreg.SetValueEx(k, "FriendlyAppName", 0, winreg.REG_SZ, "mdvw")
+            winreg.SetValueEx(k, "FriendlyAppName", 0, winreg.REG_SZ, APP_NAME)
         with winreg.CreateKeyEx(
             winreg.HKEY_CURRENT_USER,
             rf"Software\Classes\Applications\{exe_name}\DefaultIcon",
@@ -128,7 +128,7 @@ def register(open_settings: bool = False) -> int:
         winreg.SetValueEx(k, "ApplicationName", 0, winreg.REG_SZ, APP_NAME)
         winreg.SetValueEx(
             k, "ApplicationDescription", 0, winreg.REG_SZ,
-            "Fast, portable, fully offline Markdown viewer/editor.",
+            "本地 Markdown 文件阅读器。",
         )
         if icon:
             winreg.SetValueEx(k, "ApplicationIcon", 0, winreg.REG_SZ, icon)
@@ -147,8 +147,8 @@ def register(open_settings: bool = False) -> int:
     _refresh_explorer()
     _stdout_print(f"Registered .md/.markdown -> {PROG_ID}")
     _stdout_print(
-        "To make mdvw the default viewer, open Settings → Default apps, "
-        "search for mdvw, and set its file types there. (Windows doesn't "
+        "To make MD阅读器 the default viewer, open Settings → Default apps, "
+        "search for MD阅读器, and set its file types there. (Windows doesn't "
         "allow apps to set themselves as default without a user action.)"
     )
     if open_settings:

@@ -1,9 +1,28 @@
 """Runtime and facade regression tests for mdvw app behavior."""
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 from mdvw import app as app_mod
+
+
+def test_zoom_updates_native_webview(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setitem(sys.modules, "System", SimpleNamespace(Action=lambda callback: callback))
+    webview = SimpleNamespace(ZoomFactor=1.0)
+    native = SimpleNamespace(
+        browser=SimpleNamespace(webview=webview),
+        BeginInvoke=lambda callback: callback(),
+    )
+    api = app_mod.JsApi()
+    api._window = SimpleNamespace(native=native)
+
+    assert api.set_zoom(1.2) is True
+    assert webview.ZoomFactor == 1.2
+    assert api.set_zoom(9) is True
+    assert webview.ZoomFactor == 3.0
 
 
 def test_open_external_rejects_file_scheme(monkeypatch, tmp_path):

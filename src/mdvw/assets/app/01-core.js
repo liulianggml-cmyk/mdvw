@@ -2,6 +2,7 @@
 
 const html = document.documentElement;
 const preview = document.getElementById('preview');
+preview.tabIndex = -1;
 const editor = document.getElementById('editor');
 const toast = document.getElementById('toast');
 const fileChip = document.getElementById('file-chip');
@@ -22,15 +23,106 @@ const bootstrapEl = (id) =>
 const mdSource = JSON.parse(bootstrapEl('md-source').textContent || '""');
 const mdPath = bootstrapEl('md-path').textContent.trim();
 let currentPath = mdPath;
-const startMode = (bootstrapEl('md-start-mode').textContent.trim() || 'read');
 let browseRoot = (bootstrapEl('md-browse-root')?.textContent || '').trim();
 const uiState = JSON.parse(bootstrapEl('md-ui-state')?.textContent || '{}');
 
 const getApi = () => (window.pywebview && window.pywebview.api) || null;
+let zoomLevel = Number(uiState.zoom_level);
+if (!Number.isFinite(zoomLevel) || zoomLevel < 0.5 || zoomLevel > 3) zoomLevel = 1;
+const zoomValue = document.getElementById('zoom-value');
+zoomValue.textContent = `${Math.round(zoomLevel * 100)}%`;
+window.addEventListener('DOMContentLoaded', () => {
+  whenApiReady().then(api => api?.set_zoom(zoomLevel));
+});
+
+function changeZoom(delta) {
+  zoomLevel = Math.max(0.5, Math.min(3, Math.round((zoomLevel + delta) * 10) / 10));
+  zoomValue.textContent = `${Math.round(zoomLevel * 100)}%`;
+  whenApiReady().then(api => api?.set_zoom(zoomLevel));
+  persistState();
+}
+
+document.getElementById('btn-zoom-out').addEventListener('click', () => changeZoom(-0.1));
+document.getElementById('btn-zoom-in').addEventListener('click', () => changeZoom(0.1));
+zoomValue.addEventListener('click', () => changeZoom(1 - zoomLevel));
 
 let currentSource = mdSource;
 let currentMode = 'read';
 let dirty = false;
+
+const documentTabsEl = document.getElementById('document-tabs');
+const documentTabs = [];
+const documentTabScroll = new Map();
+
+function renderDocumentTabs() {
+  documentTabsEl.replaceChildren();
+  for (const tab of documentTabs) {
+    const item = document.createElement('div');
+    item.className = 'document-tab';
+    if (sameBrowserPath(tab.path, currentPath)) item.classList.add('active');
+    item.setAttribute('role', 'tab');
+    item.tabIndex = 0;
+    item.setAttribute('aria-selected', item.classList.contains('active') ? 'true' : 'false');
+    item.title = tab.path;
+    const label = document.createElement('span');
+    label.className = 'document-tab-label';
+    label.textContent = tab.name;
+    item.addEventListener('click', async (event) => {
+      if (event.target.closest('.document-tab-close')) return;
+      if (sameBrowserPath(tab.path, currentPath)) return;
+      const api = await whenApiReady();
+      if (api?.activate_tab && !await api.activate_tab(tab.path)) flash('Could not open tab');
+    });
+    item.addEventListener('keydown', event => {
+      if (event.target !== item) return;
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        item.click();
+      } else if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+        event.preventDefault();
+        const index = documentTabs.indexOf(tab);
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? documentTabs.length - 1 :
+          (index + (event.key === 'ArrowRight' ? 1 : -1) + documentTabs.length) % documentTabs.length;
+        documentTabsEl.children[next]?.focus();
+      }
+    });
+    item.appendChild(label);
+    if (documentTabs.length > 1) {
+      const close = document.createElement('button');
+      close.className = 'document-tab-close';
+      close.type = 'button';
+      close.title = `Close ${tab.name}`;
+      close.setAttribute('aria-label', close.title);
+      close.textContent = '×';
+      close.addEventListener('click', async () => {
+        const index = documentTabs.indexOf(tab);
+        if (index < 0) return;
+        const wasActive = sameBrowserPath(tab.path, currentPath);
+        const next = documentTabs[index === 0 ? 1 : index - 1];
+        documentTabs.splice(index, 1);
+        documentTabScroll.delete(tab.path);
+        const api = await whenApiReady();
+        if (wasActive && next && api?.activate_tab) await api.activate_tab(next.path);
+        if (api?.close_tab) await api.close_tab(tab.path);
+        renderDocumentTabs();
+      });
+      item.appendChild(close);
+    }
+    documentTabsEl.appendChild(item);
+  }
+}
+
+function selectDocumentTab(path, name) {
+  if (!path) return;
+  let tab = documentTabs.find(item => sameBrowserPath(item.path, path));
+  if (!tab) {
+    tab = { path, name: name || path.split(/[\\/]/).pop() };
+    documentTabs.push(tab);
+  } else if (name) {
+    tab.name = name;
+  }
+  renderDocumentTabs();
+}
 
 // ---------- Document navigation history ----------
 
@@ -50,8 +142,8 @@ function updateNavigationControls() {
   const forward = navigationHistory[navigationIndex + 1] || null;
   btnBack.disabled = !back || navigationBusy;
   btnForward.disabled = !forward || navigationBusy;
-  btnBack.title = back ? `Back to ${back.name} (Alt+Left)` : 'Back (Alt+Left)';
-  btnForward.title = forward ? `Forward to ${forward.name} (Alt+Right)` : 'Forward (Alt+Right)';
+  btnBack.title = back ? `返回 ${back.name} (Alt+←)` : '后退 (Alt+←)';
+  btnForward.title = forward ? `前往 ${forward.name} (Alt+→)` : '前进 (Alt+→)';
 }
 
 function recordDocumentNavigation(path, name = '', reason = 'open') {
@@ -136,6 +228,7 @@ recordDocumentNavigation(mdPath, fileChip.textContent || mdPath, 'initial');
 // ---------- Mode switching ----------
 
 async function setMode(mode) {
+  if (mode !== 'read') return;
   if (!['read', 'edit', 'source'].includes(mode)) mode = 'read';
   if (mode === currentMode) return;
   // Sync source from editor if leaving edit/source
@@ -159,6 +252,7 @@ async function setMode(mode) {
     }
   } else {
     await rerender();
+    preview.focus({ preventScroll: true });
   }
   updateStatusBar();
 }
@@ -167,13 +261,48 @@ segs.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
 // Cycle on E, but only when not typing in textarea/input
 document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && !e.altKey && !e.metaKey && e.key === 'Tab' && documentTabs.length > 1) {
+    e.preventDefault();
+    const index = documentTabs.findIndex(tab => sameBrowserPath(tab.path, currentPath));
+    const next = (index + (e.shiftKey ? -1 : 1) + documentTabs.length) % documentTabs.length;
+    documentTabsEl.children[next]?.click();
+    return;
+  }
+  if (e.ctrlKey && !e.altKey && !e.metaKey) {
+    if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
+      e.preventDefault();
+      changeZoom(0.1);
+      return;
+    }
+    if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') {
+      e.preventDefault();
+      changeZoom(-0.1);
+      return;
+    }
+    if (e.key === '0' || e.code === 'Numpad0') {
+      e.preventDefault();
+      changeZoom(1 - zoomLevel);
+      return;
+    }
+  }
   if (e.key === 'Escape' && paletteOpen) { closePalette(); e.preventDefault(); return; }
   if (e.key === 'Escape' && document.body.classList.contains('graph-fullscreen')) {
     exitFullscreenGraph();
     e.preventDefault();
     return;
   }
-  const typing = document.activeElement && (document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'INPUT');
+  const typing = document.activeElement &&
+    (document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'INPUT') &&
+    document.activeElement.getClientRects().length > 0;
+  if (!typing && currentMode === 'read' && (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'a') {
+    e.preventDefault();
+    const range = document.createRange();
+    range.selectNodeContents(preview);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return;
+  }
   if (!typing && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.key === 'ArrowLeft') {
     e.preventDefault();
     navigateHistory(-1);
@@ -194,12 +323,7 @@ document.addEventListener('keydown', (e) => {
     openFind();
     return;
   }
-  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 's') { e.preventDefault(); save(); return; }
-  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'n' || e.key === 'N') && !e.altKey) {
-    e.preventDefault();
-    openNoteCreateDialog();
-    return;
-  }
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 's' || e.key === 'n')) { e.preventDefault(); return; }
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'o') {
     e.preventDefault();
     openFile();
@@ -238,12 +362,7 @@ document.addEventListener('keydown', (e) => {
   }
   if ((e.ctrlKey || e.metaKey) && ['1','2','3'].includes(e.key)) {
     e.preventDefault();
-    setMode({'1':'read','2':'edit','3':'source'}[e.key]);
     return;
-  }
-  if (!typing && (e.key === 'e' || e.key === 'E')) {
-    e.preventDefault();
-    setMode({read:'edit', edit:'source', source:'read'}[currentMode]);
   }
 });
 
@@ -340,6 +459,5 @@ async function enhance(root) {
   await renderMermaid(root);
   highlightAndDecorate(root);
   buildOutline(root);
-  wireHeadingCollapse(root);
-  if (autoCollapseActive) applyAutoCollapse(root);
+  observeHeadings(root);
 }

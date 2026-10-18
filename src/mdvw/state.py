@@ -26,11 +26,13 @@ def state_path() -> Path:
 _DEFAULTS: dict = {
     "left_pane_width": 280,
     "left_pane_collapsed": False,
+    "files_height_percent": 45,
     "left_pane_section": "files",
     "right_pane_width": 300,
     "right_pane_collapsed": True,
     "mode": "read",
     "preview_narrow": False,
+    "zoom_level": 1.0,
     "recent_files": [],
     "last_file": None,
     "last_browse_root": None,

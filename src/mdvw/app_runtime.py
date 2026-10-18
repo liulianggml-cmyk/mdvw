@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import contextlib
+import json
+import secrets
 import sys
 import tempfile
 from pathlib import Path
@@ -34,6 +36,8 @@ def _maybe_try_handoff(file: Path | None, tray: bool) -> bool:
 
 
 def _restore_launch_file(file: Path | None) -> tuple[Path | None, Path | None]:
+    if file is not None and file.is_file():
+        return file, file.resolve().parent
     browse_root: Path | None = None
     persisted_root = state.get("last_browse_root")
     if isinstance(persisted_root, str) and persisted_root:
@@ -87,13 +91,28 @@ def _seed_api(api: JsApi, path: Path | None, browse_root: Path | None) -> None:
     api._current_path = path
     api._browse_root = browse_root
     if path is not None:
+        api._tab_paths.add(path.resolve())
         api._loaded_fingerprint = _fingerprint(path)
         state.add_recent(str(path))
         state.set_key("last_file", str(path))
 
 
 def _attach_loaded_handler(window: webview.Window, api: JsApi, window_title: str) -> None:
+    def _on_drop(event: dict) -> None:
+        files = event.get("dataTransfer", {}).get("files", [])
+        for file in files:
+            path = file.get("pywebviewFullPath")
+            if isinstance(path, str) and Path(path).suffix.lower() in (".md", ".markdown"):
+                token = secrets.token_urlsafe(16)
+                api._drop_candidate = (token, Path(path))
+                window.evaluate_js(
+                    "window.mdvwOpenDroppedFile("
+                    f"{json.dumps(token)}, {json.dumps(Path(path).name)})"
+                )
+                break
+
     def _on_loaded() -> None:
+        window.dom.document.on("drop", _on_drop)
         _set_window_icon(window, window_title)
         hwnd = _find_hwnd_by_title(window_title)
         if hwnd is not None:
@@ -127,7 +146,7 @@ def _start_tray_and_ipc(
             _bring_to_front()
             if tray_mod._tray_icon is not None:
                 with contextlib.suppress(Exception):
-                    tray_mod._tray_icon.title = "mdvw"
+                    tray_mod._tray_icon.title = "MD阅读器"
             if path is not None and path.exists() and path.is_file():
                 with contextlib.suppress(Exception):
                     api._load(path)
@@ -144,10 +163,6 @@ def _attach_closing_handler(
     def _on_closing() -> bool:
         if api._quitting:
             return True
-        if tray_thread is not None:
-            with contextlib.suppress(Exception):
-                window.hide()
-            return False
         if not api._dirty:
             return True
         try:
@@ -200,9 +215,10 @@ def _create_window(index: Path, api: JsApi, window_title: str) -> webview.Window
         title=window_title,
         url=index.as_uri(),
         js_api=api,
-        width=1100,
-        height=780,
+        width=1450,
+        height=900,
         min_size=(600, 400),
+        text_select=True,
     )
     api._window = window
     return window
@@ -218,7 +234,7 @@ def _start_app(file: Path | None, edit: bool, tray: bool, api: JsApi) -> int:
     instance_dir, index = _create_instance_page(source, path, edit, browse_root)
     _seed_api(api, path, browse_root)
 
-    window_title = f"{path.name if path else 'mdvw'} — mdvw"
+    window_title = f"{path.name} — MD阅读器" if path else "MD阅读器"
     window = _create_window(index, api, window_title)
     _attach_loaded_handler(window, api, window_title)
     tray_thread, ipc_server = _start_tray_and_ipc(window, api, tray)

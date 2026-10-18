@@ -320,6 +320,10 @@ def _save_current_file(api: JsApi, content: str, force: bool = False) -> dict:
 
 
 def _load_document(api: JsApi, path: Path, reason: str = "open") -> None:
+    path = path.resolve()
+    if api._browse_root != path.parent:
+        api._browse_root = path.parent
+        api._invalidate_link_index()
     source = path.read_text(encoding="utf-8")
     html = _render_with_frontmatter(
         source,
@@ -328,10 +332,12 @@ def _load_document(api: JsApi, path: Path, reason: str = "open") -> None:
         wiki_index=api._get_link_index(),
     )
     api._current_path = path
+    api._tab_paths.add(path)
     new_fp = _fingerprint(path)
     if reason != "watch":
         state.add_recent(str(path))
         state.set_key("last_file", str(path))
+        state.set_key("last_browse_root", str(api._browse_root))
     if reason == "watch":
         api._pending_fingerprint = new_fp
     else:
@@ -343,9 +349,11 @@ def _load_document(api: JsApi, path: Path, reason: str = "open") -> None:
             "source": source,
             "name": path.name,
             "path": str(path),
+            "browse_root": str(api._browse_root),
             "reason": reason,
         })
         api._window.evaluate_js(f"window.mdvwSetDocument({payload})")
+        api._window.set_title(f"{path.name} — MD阅读器")
 
 
 def _export_html(api: JsApi, content: str) -> dict:

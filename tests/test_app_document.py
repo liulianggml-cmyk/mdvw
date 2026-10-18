@@ -217,6 +217,32 @@ def test_load_records_fingerprint(tmp_path):
     api._window = MagicMock()
     api._load(p)
     assert api._loaded_fingerprint == app_mod._fingerprint(p)
+    api._window.set_title.assert_called_once_with("doc.md — MD阅读器")
+
+
+def test_opened_documents_follow_directory_and_reuse_tab(tmp_path):
+    first = tmp_path / "first.md"
+    first.write_text("# First", encoding="utf-8")
+    other_dir = tmp_path / "other"
+    other_dir.mkdir()
+    second = other_dir / "second.md"
+    second.write_text("# Second", encoding="utf-8")
+    api = app_mod.JsApi()
+    api._window = MagicMock()
+
+    api._load(first)
+    api._load(second)
+    assert api._browse_root == other_dir
+    assert api._tab_paths == {first, second}
+    assert '"browse_root":' in api._window.evaluate_js.call_args.args[0]
+
+    assert api.activate_tab(str(first))
+    assert api._current_path == first
+    assert api._browse_root == tmp_path
+    assert len(api._tab_paths) == 2
+    api.close_tab(str(second))
+    assert api._tab_paths == {first}
+    assert not api.activate_tab(str(second))
 
 
 def test_load_emits_reason_in_payload(tmp_path):

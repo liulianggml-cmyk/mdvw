@@ -13,6 +13,35 @@ def test_open_file_without_window_returns_false():
     assert api.open_file() is False
 
 
+def test_open_dropped_file_accepts_markdown_outside_workspace(tmp_path):
+    note = tmp_path / "dropped.md"
+    note.write_text("# Dropped", encoding="utf-8")
+    api = app_mod.JsApi()
+    api._window = MagicMock()
+    api._load = MagicMock()
+    api._drop_candidate = ("one-time-token", note)
+
+    assert api.open_dropped_file("one-time-token") is True
+    api._load.assert_called_once_with(note.resolve())
+    assert api._drop_candidate is None
+    assert api.open_dropped_file("one-time-token") is False
+
+
+def test_open_dropped_file_rejects_other_files(tmp_path):
+    other = tmp_path / "other.txt"
+    other.write_text("text", encoding="utf-8")
+    api = app_mod.JsApi()
+    api._window = MagicMock()
+    api._load = MagicMock()
+
+    api._drop_candidate = ("one-time-token", other)
+    assert api.open_dropped_file("wrong-token") is False
+    assert api.open_dropped_file("one-time-token") is False
+    api._drop_candidate = ("next-token", tmp_path / "missing.md")
+    assert api.open_dropped_file("next-token") is False
+    api._load.assert_not_called()
+
+
 def test_open_directory_without_window_returns_false():
     api = app_mod.JsApi()
     assert api.open_directory() is False
@@ -433,21 +462,16 @@ def test_jsapi_open_daily_note_creates_daily_file_from_template(tmp_path):
     assert api._current_path == created.resolve()
 
 
-def test_note_commands_and_dialog_are_wired():
+def test_reader_mode_does_not_expose_edit_commands():
     root = Path(__file__).resolve().parents[1] / "src" / "mdvw" / "assets"
     shell_js = (root / "app" / "02-shell.js").read_text(encoding="utf-8")
-    doc_js = (root / "app" / "07-document.js").read_text(encoding="utf-8")
-    template = (root / "template.html").read_text(encoding="utf-8")
+    core_js = (root / "app" / "01-core.js").read_text(encoding="utf-8")
+    shell_css = (root / "app" / "02-shell.css").read_text(encoding="utf-8")
 
-    assert "registerCommand('note.new'" in shell_js
-    assert "registerCommand('note.new_template'" in shell_js
-    assert "registerCommand('note.daily'" in shell_js
-    assert "registerCommand('note.rename'" in shell_js
-    assert "async function openNoteCreateDialog" in doc_js
-    assert "async function openDailyNote" in doc_js
-    assert "async function openNoteMoveDialog" in doc_js
-    assert 'id="note-create-dialog"' in template
-    assert 'id="note-move-dialog"' in template
+    assert "registerCommand('note.new'" not in shell_js
+    assert "registerCommand('file.save'" not in shell_js
+    assert "if (mode !== 'read') return;" in core_js
+    assert ".mode-cluster, #btn-save" in shell_css
 
 
 def test_wiki_hover_preview_is_wired():
@@ -585,6 +609,18 @@ def test_save_ui_state_rejects_wrong_types(tmp_path, monkeypatch):
     assert data["left_pane_collapsed"] is False
     assert data["mode"] == "edit"
     assert data["preview_narrow"] is True
+
+
+def test_save_ui_state_persists_valid_zoom(tmp_path, monkeypatch):
+    from mdvw import state
+
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+    api = app_mod.JsApi()
+    api.save_ui_state({"zoom_level": 1.3})
+    assert state.get("zoom_level") == 1.3
+    for invalid in (True, "2", 0.1, 4):
+        api.save_ui_state({"zoom_level": invalid})
+        assert state.get("zoom_level") == 1.3
 
 
 def test_open_recent_rejects_path_not_in_allowlist(tmp_path, monkeypatch):

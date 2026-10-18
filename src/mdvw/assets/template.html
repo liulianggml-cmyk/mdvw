@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="auto" data-mode="read">
+<html lang="zh-CN" data-theme="auto" data-mode="read">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{MD_NAME}} — mdvw</title>
+<title>{{MD_NAME}} — MD阅读器</title>
 <link rel="stylesheet" href="vendor/katex/katex.min.css">
 <link rel="stylesheet" href="vendor/hljs/github-dark.min.css">
 <link rel="stylesheet" href="app/01-theme.css">
@@ -14,13 +14,13 @@
 <body>
 <header id="toolbar">
   <div class="toolbar-left">
-    <button id="btn-files" class="iconbtn" title="Toggle file browser" aria-label="Toggle file browser">
+    <button id="btn-files" class="iconbtn" title="隐藏侧栏" aria-label="隐藏侧栏" aria-expanded="true" aria-controls="left-pane">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
     </button>
-    <button id="btn-back" class="iconbtn" title="Back (Alt+Left)" aria-label="Back" disabled>
+    <button id="btn-back" class="iconbtn" title="后退 (Alt+←)" aria-label="后退" disabled>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M15 6l-6 6 6 6"/></svg>
     </button>
-    <button id="btn-forward" class="iconbtn" title="Forward (Alt+Right)" aria-label="Forward" disabled>
+    <button id="btn-forward" class="iconbtn" title="前进 (Alt+→)" aria-label="前进" disabled>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></svg>
     </button>
     <div class="file-chip" id="file-chip" title="{{MD_PATH}}">{{MD_PATH}}</div>
@@ -38,12 +38,17 @@
   </div>
 
   <div class="icon-bar">
-    <button id="btn-open" class="iconbtn" title="Open… (Ctrl+O)" aria-label="Open">
+    <button id="btn-open" class="iconbtn" title="打开文件 (Ctrl+O)" aria-label="打开文件">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
     </button>
-    <button id="btn-open-dir" class="iconbtn" title="Open Directory… (Ctrl+Shift+O)" aria-label="Open Directory">
+    <button id="btn-open-dir" class="iconbtn" title="打开目录 (Ctrl+Shift+O)" aria-label="打开目录">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M8 13h8M12 9v8"/></svg>
     </button>
+    <div class="zoom-controls" role="group" aria-label="页面缩放">
+      <button id="btn-zoom-out" class="zoom-step" type="button" title="缩小 (Ctrl+-)" aria-label="缩小">−</button>
+      <button id="zoom-value" class="zoom-value" type="button" title="恢复 100% (Ctrl+0)" aria-label="恢复 100%">100%</button>
+      <button id="btn-zoom-in" class="zoom-step" type="button" title="放大 (Ctrl++)" aria-label="放大">+</button>
+    </div>
     <button id="btn-save" class="iconbtn" title="Save (Ctrl+S)" aria-label="Save">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
     </button>
@@ -51,7 +56,7 @@
       <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-width-wide"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
       <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-width-narrow" style="display:none"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg>
     </button>
-    <button id="btn-help" class="iconbtn" title="Keyboard shortcuts" aria-label="Help">
+    <button id="btn-help" class="iconbtn" title="快捷键与表格操作" aria-label="帮助">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9.5 9.5a2.5 2.5 0 1 1 4.2 1.8c-.9.7-1.7 1.2-1.7 2.7"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg>
     </button>
     <button id="btn-theme" class="iconbtn" title="Theme" aria-label="Theme">
@@ -94,9 +99,9 @@
     <div class="pane-sections">
       <section id="section-files" class="pane-section active" role="tabpanel">
         <header class="section-header">
-          <span>FILES</span>
+          <span>文件</span>
           <div class="section-actions">
-            <button id="btn-files-refresh" class="section-action" title="Refresh files">↻</button>
+            <button id="btn-files-refresh" class="section-action" title="刷新文件">↻</button>
           </div>
         </header>
         <nav id="browser-nav"></nav>
@@ -160,13 +165,14 @@
         <header class="section-header"><span>DIAGNOSTICS</span></header>
         <div id="diagnostics-list" class="diagnostics-list"></div>
       </section>
+      <div id="outline-resize" role="separator" aria-orientation="horizontal" aria-label="调整文件区与大纲区高度" aria-valuemin="15" aria-valuemax="85" tabindex="0"></div>
       <section id="section-outline" class="pane-section" hidden role="tabpanel">
         <header class="section-header">
-          <span>OUTLINE</span>
+          <span>大纲</span>
           <div class="section-actions">
-            <button id="btn-collapse-all" class="section-action" title="Collapse all (Ctrl+Shift+.)">▲</button>
-            <button id="btn-expand-all" class="section-action" title="Expand all (Ctrl+Shift+,)">▼</button>
-            <button id="btn-auto-collapse" class="section-action" title="Auto: collapse below top level">▶</button>
+            <button id="btn-collapse-all" class="section-action" title="全部折叠">▲</button>
+            <button id="btn-expand-all" class="section-action" title="全部展开">▼</button>
+            <button id="btn-auto-collapse" class="section-action" title="自动折叠次级标题">▶</button>
           </div>
         </header>
         <nav id="outline-nav"></nav>
@@ -175,6 +181,7 @@
   </aside>
   <div class="pane-resize-handle" id="left-resize"></div>
   <div id="center">
+    <div id="document-tabs" role="tablist" aria-label="已打开的 Markdown 文件"></div>
     <div id="find-bar" class="find-bar" hidden>
       <input id="find-input" type="text" placeholder="Find…" autocomplete="off" spellcheck="false">
       <span id="find-count" class="find-count"></span>
@@ -232,14 +239,14 @@
     <span id="sb-cursor" class="sb-item" hidden>Ln 1, Col 1</span>
     <span id="sb-diagnostics" class="sb-item sb-clickable" title="Diagnostics" hidden>0</span>
     <span id="sb-encoding" class="sb-item">UTF-8</span>
-    <span id="sb-version" class="sb-item" title="mdvw version">v{{MD_VERSION}}</span>
+    <span id="sb-version" class="sb-item" title="MD阅读器版本">v{{MD_VERSION}}</span>
   </footer>
 </main>
 
 <dialog id="assoc-prompt">
   <form method="dialog">
-    <h3>Make mdvw the default for .md files?</h3>
-    <p>Double-clicking Markdown files will open them here. Change later with <code>mdvw --unregister</code>.</p>
+    <h3>将 MD阅读器设为 .md 文件的默认程序？</h3>
+    <p>设置后双击 Markdown 文件会在此打开。之后可运行 <code>MD阅读器.exe --unregister</code> 取消关联。</p>
     <menu>
       <button value="no">Not now</button>
       <button value="yes" autofocus>Yes, register</button>
@@ -323,28 +330,20 @@
 
 <dialog id="help-dialog">
   <form method="dialog">
-    <h3>Keyboard shortcuts</h3>
+    <h3>阅读器快捷键</h3>
     <table class="shortcuts">
-      <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>Command palette</td></tr>
-      <tr><td><kbd>Ctrl</kbd>+<kbd>1</kbd></td><td>Read mode</td></tr>
-      <tr><td><kbd>Ctrl</kbd>+<kbd>2</kbd></td><td>Edit (split) mode</td></tr>
-      <tr><td><kbd>Ctrl</kbd>+<kbd>3</kbd></td><td>Source mode</td></tr>
-      <tr><td><kbd>E</kbd></td><td>Cycle Read → Edit → Source</td></tr>
-      <tr><td><kbd>Alt</kbd>+<kbd>Left</kbd></td><td>Back</td></tr>
-      <tr><td><kbd>Alt</kbd>+<kbd>Right</kbd></td><td>Forward</td></tr>
-      <tr><td><kbd>Ctrl</kbd>+<kbd>N</kbd></td><td>New note</td></tr>
-      <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Open file</td></tr>
-      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd></td><td>Open directory</td></tr>
-      <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save</td></tr>
-      <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>Find in document</td></tr>
-      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd></td><td>Go to heading</td></tr>
-      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td><td>Search workspace</td></tr>
-      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd></td><td>Open graph view</td></tr>
-      <tr><td><kbd>[</kbd><kbd>[</kbd></td><td>Complete wiki link</td></tr>
-      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd></td><td>Toggle narrow/wide preview</td></tr>
-      <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd></td><td>Toggle inspector</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>打开 Markdown 文件</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd></td><td>打开目录</td></tr>
+      <tr><td><kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>→</kbd></td><td>后退 / 前进</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Tab</kbd></td><td>切换到下一个页签（Shift 反向）</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>查找正文</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>-</kbd></td><td>放大 / 缩小</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>0</kbd></td><td>恢复 100%</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+鼠标点击表格</td><td>选取不相邻的整列</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+鼠标拖动表格</td><td>选取列或部分行</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>复制选中的表格内容</td></tr>
     </table>
-    <menu><button value="ok" autofocus>Close</button></menu>
+    <menu><button value="ok" autofocus>关闭</button></menu>
   </form>
 </dialog>
 
@@ -354,7 +353,7 @@
   <div id="palette-results" class="palette-results"></div>
 </div>
 
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script type="application/json" id="md-source">{{MD_SOURCE}}</script>
 <script type="text/plain" id="md-name">{{MD_NAME}}</script>
@@ -392,5 +391,6 @@
 <script src="app/05-graph.js"></script>
 <script src="app/06-session-theme.js"></script>
 <script src="app/07-document.js"></script>
+<script src="app/08-table-columns.js"></script>
 </body>
 </html>

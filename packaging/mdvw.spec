@@ -6,12 +6,13 @@ from pathlib import Path
 # repo root is its parent.
 ROOT = Path(SPECPATH).resolve().parent
 SRC = ROOT / "src" / "mdvw"
-assert (SRC / "__main__.py").exists(), f"Expected src/mdvw/__main__.py; got ROOT={ROOT}"
+LAUNCHER = ROOT / "packaging" / "mdvw_launcher.py"
+assert LAUNCHER.exists(), f"Expected packaging/mdvw_launcher.py; got ROOT={ROOT}"
 
 block_cipher = None
 
 a = Analysis(
-    [str(SRC / "__main__.py")],
+    [str(LAUNCHER)],
     pathex=[str(SRC.parent)],
     binaries=[],
     datas=[(str(SRC / "assets"), "mdvw/assets")],
@@ -36,7 +37,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="mdvw",
+    name="MD阅读器",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -52,5 +53,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="mdvw",
+    name="MD阅读器",
 )

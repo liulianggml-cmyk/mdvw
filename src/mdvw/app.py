@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 import sys
 from pathlib import Path
@@ -56,6 +57,7 @@ from .app_workspace import (  # noqa: E402
     _invalidate_link_index,
     _list_markdown_dir,
     _open_directory,
+    _open_dropped_file,
     _open_file,
     _open_path,
     _open_recent,
@@ -89,12 +91,14 @@ class JsApi:
 
     def __init__(self) -> None:
         self._window: webview.Window | None = None
+        self._drop_candidate: tuple[str, Path] | None = None
         self._current_path: Path | None = None
         self._loaded_fingerprint: tuple[int, int] | None = None
         self._pending_fingerprint: tuple[int, int] | None = None
         self._dirty: bool = False
         self._quitting: bool = False
         self._browse_root: Path | None = None
+        self._tab_paths: set[Path] = set()
         self._hwnd: int | None = None
         self._link_index: LinkIndex | None = None
         self._link_index_fp: tuple[tuple[str, int, int], ...] | None = None
@@ -107,6 +111,19 @@ class JsApi:
         if sys.platform != "win32" or self._hwnd is None:
             return
         _apply_titlebar_theme(self._hwnd, bool(dark))
+
+    def set_zoom(self, factor: float) -> bool:
+        if sys.platform != "win32" or self._window is None or self._window.native is None:
+            return False
+        try:
+            from System import Action
+
+            native = self._window.native
+            level = max(0.5, min(3.0, float(factor)))
+            native.BeginInvoke(Action(lambda: setattr(native.browser.webview, "ZoomFactor", level)))
+            return True
+        except (AttributeError, TypeError, ValueError):
+            return False
 
     def confirm_quit(self) -> None:
         from .tray import stop_tray
@@ -151,8 +168,28 @@ class JsApi:
     def open_path(self, path_str: str) -> bool:
         return _open_path(self, path_str)
 
+    def activate_tab(self, path_str: str) -> bool:
+        if not isinstance(path_str, str):
+            return False
+        try:
+            path = Path(path_str).resolve()
+        except (OSError, ValueError):
+            return False
+        if path not in self._tab_paths or not path.is_file():
+            return False
+        self._load(path, reason="tab")
+        return True
+
+    def close_tab(self, path_str: str) -> None:
+        if isinstance(path_str, str):
+            with contextlib.suppress(OSError, ValueError):
+                self._tab_paths.discard(Path(path_str).resolve())
+
     def open_file(self) -> bool:
         return _open_file(self)
+
+    def open_dropped_file(self, token: str) -> bool:
+        return _open_dropped_file(self, token)
 
     def open_directory(self) -> bool:
         return _open_directory(self)

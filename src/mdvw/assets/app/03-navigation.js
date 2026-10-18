@@ -356,7 +356,7 @@ async function revealBrowserPath(path) {
 async function refreshBrowserIfVisible(targetPath = '') {
   browserLoaded = false;
   browserNav.innerHTML = '';
-  if (leftPaneSection !== 'files' || leftPaneCollapsed || !browseRoot) return;
+  if (leftPaneCollapsed || !browseRoot) return;
   try {
     await loadBrowser();
     await revealBrowserPath(targetPath || currentPath);
@@ -502,16 +502,15 @@ const btnFilesRefresh = document.getElementById('btn-files-refresh');
 btnFilesRefresh.addEventListener('click', () => refreshBrowserIfVisible());
 
 btnFiles.addEventListener('click', async () => {
-  if (!browseRoot) { flash('File browser unavailable'); return; }
-  if (leftPaneSection === 'files' && !leftPaneCollapsed) {
-    toggleLeftPane();
-  } else {
-    await loadBrowser();
-    showLeftSection('files');
-  }
+  toggleLeftPane();
+  if (leftPaneCollapsed || !browseRoot) return;
+  await loadBrowser();
+  await revealBrowserPath(currentPath);
 });
-// Auto-open the sidebar on first paint when no specific file was passed.
-if (browseRoot && !mdPath) {
-  loadBrowser().then(() => showLeftSection('files'));
+if (browseRoot) {
+  const showInitialFiles = () => loadBrowser().then(() => revealBrowserPath(currentPath));
+  showInitialFiles();
+  window.addEventListener('pywebviewready', showInitialFiles, { once: true });
+  setTimeout(() => { if (!browserLoaded) showInitialFiles(); }, 1000);
 }
 

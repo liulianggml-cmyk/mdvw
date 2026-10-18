@@ -10,7 +10,7 @@
   --rule: #d6d6d6;
   --accent: #1a1a1a;
   --accent-soft: #f0f0f0;
-  --link: #1a1a1a;
+  --link: #607cd2;
   --code-bg: #0f1012;
   --code-fg: #e6e1dc;
   --code-header: #0a0b0d;
@@ -31,7 +31,7 @@
   --font-serif: Georgia, 'Charter', 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', 'SF Mono', Consolas, 'Liberation Mono', monospace;
-  --preview-max: 820px;
+  --preview-max: 1450px;
   --preview-pad: 56px;
 }
 
@@ -85,9 +85,9 @@ html[data-theme="dark"] {
 html, body {
   margin: 0; padding: 0; height: 100%;
   background: var(--bg); color: var(--fg);
-  font-family: var(--font-serif);
-  font-size: 17px;
-  line-height: 1.7;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }

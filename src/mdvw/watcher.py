@@ -42,7 +42,8 @@ def start_watcher(file: Path, api: JsApi) -> threading.Thread:
                     continue
                 if change in (Change.added, Change.modified):
                     with contextlib.suppress(OSError):
-                        api._load(p, reason="watch")
+                        if api._current_path == target:
+                            api._load(p, reason="watch")
 
     def _thread() -> None:
         with contextlib.suppress(Exception):

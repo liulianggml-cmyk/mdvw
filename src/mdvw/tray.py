@@ -50,8 +50,8 @@ def _system_dark() -> bool:
         return False
 
 
-_TOOLTIP_DEFAULT = "mdvw"
-_TOOLTIP_HIDDEN = "mdvw — running (right-click to quit)"
+_TOOLTIP_DEFAULT = "MD阅读器"
+_TOOLTIP_HIDDEN = "MD阅读器 — 运行中 (右键退出)"
 
 
 def start_tray(window: webview.Window, api: JsApi | None = None) -> threading.Thread:

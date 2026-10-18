@@ -19,6 +19,7 @@ trust boundary as the CLI and fine for this use.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import os
 import socket
@@ -35,7 +36,12 @@ _LOCK_NAME = "instance.lock"
 
 def _lock_path() -> Path:
     # Piggyback on config's dir so we don't sprawl another data location.
-    return Path(config.config_path()).parent / _LOCK_NAME
+    name = _LOCK_NAME
+    if getattr(sys, "frozen", False):
+        executable = str(Path(sys.executable).resolve()).casefold()
+        identity = hashlib.sha256(executable.encode("utf-8")).hexdigest()[:16]
+        name = f"instance-{identity}.lock"
+    return Path(config.config_path()).parent / name
 
 
 def _read_lock() -> tuple[int, int] | None:

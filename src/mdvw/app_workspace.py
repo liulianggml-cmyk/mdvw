@@ -42,11 +42,13 @@ _MD_SUFFIXES = (".md", ".markdown")
 _UI_STATE_SCHEMA: ClassVar[dict[str, type | tuple[type, ...]]] = {
     "left_pane_width": int,
     "left_pane_collapsed": bool,
+    "files_height_percent": int,
     "left_pane_section": str,
     "right_pane_width": int,
     "right_pane_collapsed": bool,
     "mode": str,
     "preview_narrow": bool,
+    "zoom_level": (int, float),
 }
 
 
@@ -138,6 +140,21 @@ def _open_file(api: JsApi) -> bool:
     return True
 
 
+def _open_dropped_file(api: JsApi, token: str) -> bool:
+    candidate_drop = api._drop_candidate
+    if api._window is None or candidate_drop is None or token != candidate_drop[0]:
+        return False
+    api._drop_candidate = None
+    try:
+        candidate = candidate_drop[1].resolve()
+    except OSError:
+        return False
+    if candidate.suffix.lower() not in _MD_SUFFIXES or not candidate.is_file():
+        return False
+    api._load(candidate)
+    return True
+
+
 def _open_directory(api: JsApi) -> bool:
     """Pick a workspace root via the native folder dialog."""
     if api._window is None:
@@ -197,6 +214,8 @@ def _save_ui_state(data: dict) -> None:
         if expected is int and isinstance(value, bool):
             continue
         if not isinstance(value, expected):
+            continue
+        if key == "zoom_level" and (isinstance(value, bool) or not 0.5 <= value <= 3.0):
             continue
         cleaned[key] = value
     if not cleaned:

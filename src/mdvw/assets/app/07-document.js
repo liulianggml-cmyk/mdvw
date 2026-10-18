@@ -206,6 +206,49 @@ async function openFile() {
   const api = getApi();
   if (api && api.open_file) await api.open_file();
 }
+
+let fileDragDepth = 0;
+function hasDraggedFiles(e) {
+  return e.dataTransfer && (
+    Array.from(e.dataTransfer.types).includes('Files') || e.dataTransfer.files.length > 0
+  );
+}
+function clearFileDrag() {
+  fileDragDepth = 0;
+  document.body.classList.remove('file-dragging');
+}
+document.addEventListener('dragenter', (e) => {
+  if (!hasDraggedFiles(e)) return;
+  e.preventDefault();
+  fileDragDepth++;
+  document.body.classList.add('file-dragging');
+});
+document.addEventListener('dragover', (e) => {
+  if (!hasDraggedFiles(e)) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+});
+document.addEventListener('dragleave', () => {
+  if (fileDragDepth > 0 && --fileDragDepth <= 0) clearFileDrag();
+});
+document.addEventListener('drop', (e) => {
+  if (!hasDraggedFiles(e)) return;
+  e.preventDefault();
+  clearFileDrag();
+  if (!Array.from(e.dataTransfer.files).some(file => /\.(md|markdown)$/i.test(file.name))) {
+    flash('Drop a .md or .markdown file');
+  }
+});
+window.addEventListener('dragend', clearFileDrag);
+
+window.mdvwOpenDroppedFile = async function (token, name) {
+  if (!(await confirmDiscardIfDirty())) return;
+  const api = await whenApiReady();
+  if (api && api.open_dropped_file && !(await api.open_dropped_file(token))) {
+    flash(`Could not open ${name}`);
+  }
+};
+
 async function openDirectory() {
   // Switching workspaces only updates _browse_root / refreshes the
   // sidebar; the current document and its dirty state are preserved,
@@ -272,7 +315,7 @@ async function save() {
       fileChip.textContent = result.path;
       fileChip.title = result.path;
     }
-    if (result.name) document.title = `${result.name} — mdvw`;
+    if (result.name) document.title = `${result.name} — MD阅读器`;
     recordDocumentNavigation(currentPath, result.name || fileChip.textContent || currentPath, 'save');
     setDirty(false);
     incomingLoaded = false;
@@ -566,6 +609,7 @@ async function rerender() {
   if (!api || !api.render_markdown) return;
   hideWikiPreview();
   const htmlOut = await api.render_markdown(currentSource);
+  if (typeof clearTableColumnSelection === 'function') clearTableColumnSelection();
   preview.innerHTML = htmlOut;
   await enhance(preview);
   updateInspector();
@@ -623,11 +667,16 @@ function applyPendingWikiJump(path) {
   if (heading && !scrollToHeading(heading)) flash(`Heading not found: ${heading}`);
 }
 
-async function applyExternalDocument({ html: htmlOut, source, name, path, reason = 'open' }) {
+async function applyExternalDocument({ html: htmlOut, source, name, path, browse_root: nextRoot, reason = 'open' }) {
+  if (typeof clearTableColumnSelection === 'function') clearTableColumnSelection();
+  if (currentPath) documentTabScroll.set(currentPath, preview.scrollTop);
+  const rootChanged = !!nextRoot && nextRoot !== browseRoot;
+  if (rootChanged) browseRoot = nextRoot;
   currentSource = source;
   resetWikiPreview({ clearCache: true });
   setDirty(false);
   currentPath = path || '';
+  selectDocumentTab(currentPath, name);
   if (path) {
     fileChip.textContent = path;
     fileChip.title = path;
@@ -635,12 +684,15 @@ async function applyExternalDocument({ html: htmlOut, source, name, path, reason
     fileChip.textContent = name;
     fileChip.title = name;
   }
-  if (name) document.title = `${name} — mdvw`;
+  if (name) document.title = `${name} — MD阅读器`;
   recordDocumentNavigation(currentPath, name || fileChip.textContent || currentPath, reason);
   if (browserLoaded) setActiveBrowserPath(currentPath);
   if (currentMode === 'edit' || currentMode === 'source') editor.value = source;
   preview.innerHTML = htmlOut;
   await enhance(preview);
+  preview.scrollTop = reason === 'tab' ? (documentTabScroll.get(currentPath) || 0) : 0;
+  if (rootChanged) await refreshBrowserIfVisible(currentPath);
+  else if (browserLoaded) await revealBrowserPath(currentPath);
   updateInspector();
   scheduleDiagnostics();
   incomingLoaded = false;
@@ -884,15 +936,13 @@ function flash(msg) {
   applyLeftPane();
   applyRightPane();
   if (leftPaneSection) showLeftSection(leftPaneSection);
-  // If left pane was saved as collapsed, restore that.
-  if (uiState.left_pane_collapsed) { leftPaneCollapsed = true; applyLeftPane(); }
-  if (uiState.preview_narrow) preview.classList.add('narrow');
-  btnFiles.classList.toggle('active', !leftPaneCollapsed && leftPaneSection === 'files');
+  leftPaneCollapsed = uiState.left_pane_collapsed === true;
+  applyLeftPane();
 
   await enhance(preview);
+  selectDocumentTab(currentPath, currentPath.split(/[\\/]/).pop());
   updateInspector();
   updateStatusBar();
   scheduleDiagnostics();
-  // startMode preset (from CLI --edit etc.)
-  if (startMode && startMode !== 'read') await setMode(startMode);
+  preview.focus({ preventScroll: true });
 })();
